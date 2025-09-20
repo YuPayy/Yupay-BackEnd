@@ -13,3 +13,119 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  user_id      Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  qrisCode     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relasi
+  notas        Nota[]             @relation("UserNotas")
+  friendships  Friendship[]       @relation("UserFriendships")
+  friends      Friendship[]       @relation("UserFriends")
+  splitParts   SplitParticipant[]
+  otps         Otp[]
+  paymentsFrom Payment[]          @relation("PaymentFrom")
+  paymentsTo   Payment[]          @relation("PaymentTo")
+}
+
+model Friendship {
+  friendship_id Int      @id @default(autoincrement())
+  user_id       Int
+  friend_id     Int
+  status        String
+  createdAt     DateTime @default(now())
+
+  // Relasi
+  user   User @relation("UserFriendships", fields: [user_id], references: [user_id])
+  friend User @relation("UserFriends", fields: [friend_id], references: [user_id])
+
+  @@unique([user_id, friend_id]) // constraint unik
+}
+
+model Nota {
+  nota_id          Int      @id @default(autoincrement())
+  payer_id         Int
+  tanggalTransaksi DateTime
+  totalHarga       Decimal
+  status           String
+  createdAt        DateTime @default(now())
+
+  // Relasi
+  payer        User               @relation("UserNotas", fields: [payer_id], references: [user_id])
+  items        Item[]
+  participants SplitParticipant[]
+  payments     Payment[]
+}
+
+model Item {
+  item_id   Int      @id @default(autoincrement())
+  nota_id   Int
+  namaItem  String
+  quantity  Int
+  harga     Decimal
+  createdAt DateTime @default(now())
+
+  // Relasi
+  nota   Nota        @relation(fields: [nota_id], references: [nota_id])
+  claims KlaimItem[]
+}
+
+model SplitParticipant {
+  participant_id Int      @id @default(autoincrement())
+  nota_id        Int
+  user_id        Int
+  statusKlaim    String
+  createdAt      DateTime @default(now())
+
+  // Relasi
+  nota   Nota        @relation(fields: [nota_id], references: [nota_id])
+  user   User        @relation(fields: [user_id], references: [user_id])
+  claims KlaimItem[]
+}
+
+model KlaimItem {
+  klaim_id       Int      @id @default(autoincrement())
+  item_id        Int
+  participant_id Int
+  quantity       Int
+  createdAt      DateTime @default(now())
+
+  // Relasi
+  item        Item             @relation(fields: [item_id], references: [item_id])
+  participant SplitParticipant @relation(fields: [participant_id], references: [participant_id])
+}
+
+model Otp {
+  otp_id    Int      @id @default(autoincrement())
+  user_id   Int
+  kodeOtp   String
+  expiredAt DateTime
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relasi
+  user User @relation(fields: [user_id], references: [user_id])
+}
+
+model Payment {
+  payment_id   Int      @id @default(autoincrement())
+  nota_id      Int
+  from_user_id Int
+  to_user_id   Int
+  amount       Decimal
+  status       String   @default("pending")
+  proofUrl     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relasi
+  nota Nota @relation(fields: [nota_id], references: [nota_id])
+  from User @relation("PaymentFrom", fields: [from_user_id], references: [user_id])
+  to   User @relation("PaymentTo", fields: [to_user_id], references: [user_id])
+}

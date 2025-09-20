@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npm run _dev --silent --silent",
+    "_dev": "ts-node-dev --respawn --transpile-only app/server.ts --quiet",
+    "build": "tsc",
+    "start": "node dist/app/server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "@prisma/client": "^6.14.0",
+    "chalk": "^5.6.2",
     "express": "^5.1.0",
     "prisma": "^6.14.0"
   },
