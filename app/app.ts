@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
+import cors from "cors"; // ✅ Tambahkan ini
 import authRoutes from "../src/modules/auth/auth.route";
 import "../src/modules/auth/google.passport";
 
@@ -8,6 +9,15 @@ dotenv.config();
 const app = express();
 
 app.use(express.json());
+
+// ✅ Aktifkan CORS di sini
+app.use(cors({
+  origin: "http://localhost:3001",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 
 console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
 console.log("Auth routes registered at /auth");
@@ -22,6 +32,5 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 app.use("/auth", authRoutes);
-
 
 export default app;
