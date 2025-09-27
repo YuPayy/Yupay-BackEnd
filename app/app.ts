@@ -10,13 +10,18 @@ const app = express();
 
 app.use(express.json());
 
-// ✅ Aktifkan CORS di sini
+
 app.use(cors({
-  origin: "http://localhost:3001",
+  origin: [
+    "http://localhost:3001", 
+    "https://yupay-frontend-app-4ex4-git-main-straw-hat-1be8d03a.vercel.app", 
+    "https://yupay-app.vercel.app"
+  ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
 
 
 console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
