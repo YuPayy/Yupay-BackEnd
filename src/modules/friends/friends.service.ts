@@ -75,3 +75,21 @@ export const listFriendsService = async (userId: number) => {
         }
     });
 };
+
+export const listPendingFriendsService = async (userId: number) => {
+    return prisma.friendship.findMany({
+        where: {
+            friend_id: userId,
+            status: "PENDING"
+        },
+        include: {
+            user: {
+                select: {
+                    user_id: true,
+                    username: true,
+                    email: true
+                }
+            }
+        }
+    });
+};

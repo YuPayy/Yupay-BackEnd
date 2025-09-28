@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { addFriendService, confirmFriendService, listFriendsService, searchFriendService, unfriendService } from "./friends.service";
+import { addFriendService, confirmFriendService, listFriendsService, searchFriendService, unfriendService, listPendingFriendsService } from "./friends.service";
 
 // Add friend
 export const addFriendController = async (req: Request, res: Response) => {
@@ -114,6 +114,20 @@ export const unfriendController = async (req: Request, res: Response) => {
         }
 
         res.status(200).json({ message: "Unfriended successfully" });
+    } catch (err: any) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// Get all pending friend requests for the logged-in user
+export const listPendingFriendsController = async (req: Request, res: Response) => {
+    try {
+        const userId = (req.user as any)?.userId;
+        if (!userId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        const pendingRequests = await listPendingFriendsService(userId);
+        res.status(200).json({ pending: pendingRequests });
     } catch (err: any) {
         res.status(400).json({ error: err.message });
     }
