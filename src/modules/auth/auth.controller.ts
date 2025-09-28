@@ -33,7 +33,13 @@ export const loginController = async (req: Request, res: Response) => {
     try {
         const parsed = loginSchema.parse(req.body);
 
+        // Ambil user beserta profile
         const { user, token } = await loginUser(parsed.identifier, parsed.password);
+
+        // Ambil profile user (gunakan prisma include di loginUser)
+        const profile = user.Profile
+            ? { name: user.Profile.name, image: user.Profile.image }
+            : null;
 
         return res.status(200).json({
             message: "Login successful",
@@ -42,7 +48,8 @@ export const loginController = async (req: Request, res: Response) => {
                 id: user.user_id,
                 username: user.username,
                 email: user.email,
-            }
+            },
+            profile
         });
     } catch (err: any) {
         return res.status(400).json({

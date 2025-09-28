@@ -1,8 +1,9 @@
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
-import cors from "cors"; // ✅ Tambahkan ini
+import cors from "cors";
 import authRoutes from "../src/modules/auth/auth.route";
 import friendsRoutes from "../src/modules/friends/friends.routes";
+import profileRoutes from "../src/modules/profile/profile.routes";
 import "../src/modules/auth/google.passport";
 import { authMiddleware } from "../src/modules/auth/auth.middleware"; // pastikan file middleware ada
 
@@ -39,10 +40,10 @@ app.get("/", (req: Request, res: Response) => {
   `);
 });
 
-// Auth routes (tidak butuh auth middleware)
 app.use("/auth", authRoutes);
+app.use("/friends", authMiddleware, friendsRoutes);
+app.use("/profile", profileRoutes);
 
-// Friends routes (butuh auth middleware supaya hanya user ter-login yang bisa akses)
-//app.use("/friends", authMiddleware, friendsRoutes);
+
 
 export default app;

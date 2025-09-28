@@ -57,6 +57,9 @@ export const loginUser = async (identifier: string, password: string) => {
                 { username: identifier },
                 { email: identifier }
             ]
+        },
+        include: {
+            Profile: true
         }
     });
 
