@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.schema";
 import { registerUser, loginUser, forgotPasswordService, resetPasswordService } from "./auth.service";
 
+// Register user
 export const registerController = async (req: Request, res: Response) => {
     try {
         const parsed = registerSchema.parse(req.body);
@@ -28,6 +29,7 @@ export const registerController = async (req: Request, res: Response) => {
     }
 };
 
+// Login user
 export const loginController = async (req: Request, res: Response) => {
     try {
         const parsed = loginSchema.parse(req.body);
@@ -50,6 +52,7 @@ export const loginController = async (req: Request, res: Response) => {
     }
 };
 
+// Forgot password
 export const forgotPasswordController = async (req: Request, res: Response) => {
     try {
         const { email } = forgotPasswordSchema.parse(req.body);
@@ -60,17 +63,16 @@ export const forgotPasswordController = async (req: Request, res: Response) => {
     }
 };
 
+// Reset password
 export const resetPasswordController = async (req: Request, res: Response) => {
     let body = req.body;
 
-    // Mapping token → otp jika frontend mengirim token
     if (body && typeof body === "object") {
         if (!body.otp && body.token) {
             body = { ...body, otp: body.token };
         }
     }
 
-    // Jika email tidak ada, kembalikan error
     if (!body.email) {
         return res.status(400).json({ error: "Missing required field: email" });
     }
@@ -81,7 +83,6 @@ export const resetPasswordController = async (req: Request, res: Response) => {
         return res.status(400).json({ error: "Missing required field: newPassword" });
     }
 
-    // Validasi input dengan schema
     const parsed = resetPasswordSchema.safeParse(body);
     if (!parsed.success) {
         const issues = parsed.error?.issues;
