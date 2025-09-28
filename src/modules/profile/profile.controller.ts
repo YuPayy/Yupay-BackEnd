@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ProfileService, uploadQrisService, editQrisService, deleteQrisService } from "./profile.service";
+import { ProfileService, uploadQrisService, editQrisService, deleteQrisService, getUserQris } from "./profile.service";
 import { createProfileSchema, updateProfileSchema } from "./profile.schema";
 
 export const ProfileController = {
@@ -95,7 +95,6 @@ export const ProfileController = {
         }
     },
 
-    // Upload QRIS image (POST /profile/qris)
     async uploadQrisController(req: Request, res: Response) {
         try {
             const userId = (req as any).user?.userId;
@@ -111,7 +110,6 @@ export const ProfileController = {
                 user: {
                     user_id: updated.user_id,
                     username: updated.username,
-                    email: updated.email,
                     qrisCode: updated.qrisCode
                 }
             });
@@ -120,7 +118,6 @@ export const ProfileController = {
         }
     },
 
-    // Edit QRIS image (PUT /profile/qris)
     async editQrisController(req: Request, res: Response) {
         try {
             const userId = (req as any).user?.userId;
@@ -136,7 +133,6 @@ export const ProfileController = {
                 user: {
                     user_id: updated.user_id,
                     username: updated.username,
-                    email: updated.email,
                     qrisCode: updated.qrisCode
                 }
             });
@@ -145,7 +141,6 @@ export const ProfileController = {
         }
     },
 
-    // Delete QRIS image (DELETE /profile/qris)
     async deleteQrisController(req: Request, res: Response) {
         try {
             const userId = (req as any).user?.userId;
@@ -159,9 +154,27 @@ export const ProfileController = {
                 user: {
                     user_id: updated.user_id,
                     username: updated.username,
-                    email: updated.email,
                     qrisCode: updated.qrisCode
                 }
+            });
+        } catch (err: any) {
+            res.status(400).json({ error: err.message });
+        }
+    },
+
+    async getQrisController(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.userId;
+            if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+            const user = await getUserQris(userId);
+            if (!user) return res.status(404).json({ error: "User not found" });
+            if (!user.qrisCode) return res.status(404).json({ error: "QRIS not found." });
+
+            res.status(200).json({
+                user_id: user.user_id,
+                username: user.username,
+                qrisCode: user.qrisCode
             });
         } catch (err: any) {
             res.status(400).json({ error: err.message });

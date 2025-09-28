@@ -10,8 +10,9 @@ router.get("/token", ProfileController.getProfileByToken);
 router.get("/", ProfileController.list);
 router.post("/", ProfileController.create);
 router.put("/", ProfileController.update);
-router.post("/qris", ProfileController.uploadQrisController);   // Upload QRIS pertama kali
-router.put("/qris", ProfileController.editQrisController);     // Edit/update QRIS
-router.delete("/qris", ProfileController.deleteQrisController); // Hapus QRIS
+router.get("/qris", ProfileController.getQrisController);
+router.post("/qris", ProfileController.uploadQrisController);
+router.put("/qris", ProfileController.editQrisController);
+router.delete("/qris", ProfileController.deleteQrisController);
 
 export default router;

@@ -97,3 +97,15 @@ export async function deleteQrisService(userId: number) {
         data: { qrisCode: null }
     });
 }
+
+export async function getUserQris(userId: number) {
+    return prisma.user.findUnique({
+        where: { user_id: userId },
+        select: {
+            user_id: true,
+            username: true,
+            email: true,
+            qrisCode: true,
+        }
+    });
+}

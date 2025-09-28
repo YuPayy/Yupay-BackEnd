@@ -12,7 +12,6 @@ import {
 
 const router = Router();
 
-// Login dengan Google OAuth2
 router.use(
   cookieSession({
     name: "session",
@@ -54,15 +53,6 @@ router.get(
       );
     }
 
-    /*res.json({
-      user: {
-        email: user?.email || null,
-        name: user?.displayName || null,
-        picture: user?.photos?.[0]?.value || null,
-      },
-      provider: "google",
-      token,
-    });*/
     res.redirect(`http://localhost:3001/pages/home?token=${token}`);
   }
 );

@@ -13,7 +13,6 @@ export const addFriendService = async (userId: number, targetUserId: number) => 
     });
 };
 
-// Unfriend (hapus pertemanan dua arah)
 export const unfriendService = async (userId: number, targetUserId: number) => {
     return prisma.friendship.deleteMany({
         where: {
@@ -60,7 +59,6 @@ export const searchFriendService = async ({
 };
 
 
-// Daftar teman
 export const listFriendsService = async (userId: number) => {
     return await prisma.friendship.findMany({
         where: { user_id: userId, status: "accepted" },

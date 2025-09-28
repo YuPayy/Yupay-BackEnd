@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { addFriendService, confirmFriendService, listFriendsService, searchFriendService, unfriendService, listPendingFriendsService } from "./friends.service";
 
-// Add friend
 export const addFriendController = async (req: Request, res: Response) => {
     try {
         const userId = (req.user as any)?.userId;
@@ -11,7 +10,6 @@ export const addFriendController = async (req: Request, res: Response) => {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
-        // pastikan targetUserId number
         const targetId = Number(targetUserId);
         if (!targetUserId || isNaN(targetId)) {
             return res.status(400).json({ error: "targetUserId must be a valid number" });
@@ -31,7 +29,6 @@ export const addFriendController = async (req: Request, res: Response) => {
     }
 };
 
-// Confirm friend
 export const confirmFriendController = async (req: Request, res: Response) => {
     try {
         const { friendId } = req.body;
@@ -52,7 +49,6 @@ export const confirmFriendController = async (req: Request, res: Response) => {
     }
 };
 
-// Daftar teman
 export const listFriendsController = async (req: Request, res: Response) => {
     try {
         const userId = (req.user as any)?.userId;
@@ -66,7 +62,6 @@ export const listFriendsController = async (req: Request, res: Response) => {
     }
 };
 
-// Search friend by user_id (atau username/email jika ingin)
 export const searchFriendController = async (req: Request, res: Response) => {
     try {
         const { userId, username, email } = req.query;
@@ -119,7 +114,6 @@ export const unfriendController = async (req: Request, res: Response) => {
     }
 };
 
-// Get all pending friend requests for the logged-in user
 export const listPendingFriendsController = async (req: Request, res: Response) => {
     try {
         const userId = (req.user as any)?.userId;

@@ -1,9 +1,7 @@
-// src/modules/auth/auth.controller.ts
 import { Request, Response } from "express";
 import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.schema";
 import { registerUser, loginUser, forgotPasswordService, resetPasswordService } from "./auth.service";
 
-// Register user
 export const registerController = async (req: Request, res: Response) => {
     try {
         const parsed = registerSchema.parse(req.body);
@@ -28,15 +26,12 @@ export const registerController = async (req: Request, res: Response) => {
     }
 };
 
-// Login user
 export const loginController = async (req: Request, res: Response) => {
     try {
         const parsed = loginSchema.parse(req.body);
 
-        // Ambil user beserta profile
         const { user, token } = await loginUser(parsed.identifier, parsed.password);
 
-        // Ambil profile user (gunakan prisma include di loginUser)
         const profile = user.Profile
             ? { name: user.Profile.name, image: user.Profile.image }
             : null;
@@ -58,7 +53,6 @@ export const loginController = async (req: Request, res: Response) => {
     }
 };
 
-// Forgot password
 export const forgotPasswordController = async (req: Request, res: Response) => {
     try {
         const { email } = forgotPasswordSchema.parse(req.body);
@@ -69,7 +63,6 @@ export const forgotPasswordController = async (req: Request, res: Response) => {
     }
 };
 
-// Reset password
 export const resetPasswordController = async (req: Request, res: Response) => {
     let body = req.body;
 

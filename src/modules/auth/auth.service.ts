@@ -1,4 +1,3 @@
-// src/modules/auth/auth.service.ts
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -85,11 +84,9 @@ export const forgotPasswordService = async (email: string) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new Error("Email not found");
 
-    // Generate 6 digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expireAt = addMinutes(new Date(), 5);
 
-    // Simpan OTP ke tabel Otp
     await prisma.otp.create({
         data: {
             user_id: user.user_id,
@@ -129,7 +126,6 @@ export const resetPasswordService = async (email: string, otp: string, newPasswo
         data: { passwordHash: hashedPassword },
     });
 
-    // Update status OTP menjadi "used" berdasarkan otp_id
     await prisma.otp.update({
         where: { otp_id: otpRecord.otp_id },
         data: { status: "used" },
