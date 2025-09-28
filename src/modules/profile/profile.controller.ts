@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ProfileService } from "./profile.service";
+import { ProfileService, uploadQrisService, editQrisService, deleteQrisService } from "./profile.service";
 import { createProfileSchema, updateProfileSchema } from "./profile.schema";
 
 export const ProfileController = {
@@ -11,14 +11,7 @@ export const ProfileController = {
             }
             const profile = await ProfileService.getProfileByUserId(userId);
             if (!profile) return res.status(404).json({ error: "Profile not found" });
-            // Kembalikan data sesuai permintaan
-            res.json({
-                name: profile.name,
-                username: profile.username,
-                image: profile.image,
-                createdAt: profile.createdAt,
-                updatedAt: profile.updatedAt
-            });
+            res.json(profile);
         } catch (err: any) {
             res.status(500).json({ error: err.message });
         }
@@ -99,6 +92,79 @@ export const ProfileController = {
             res.json(profiles);
         } catch (err: any) {
             res.status(500).json({ error: err.message });
+        }
+    },
+
+    // Upload QRIS image (POST /profile/qris)
+    async uploadQrisController(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.userId;
+            const { qrisUrl } = req.body;
+
+            if (!userId) return res.status(401).json({ error: "Unauthorized" });
+            if (!qrisUrl) return res.status(400).json({ error: "qrisUrl is required" });
+
+            const updated = await uploadQrisService(userId, qrisUrl);
+
+            res.status(201).json({
+                message: "QRIS uploaded successfully",
+                user: {
+                    user_id: updated.user_id,
+                    username: updated.username,
+                    email: updated.email,
+                    qrisCode: updated.qrisCode
+                }
+            });
+        } catch (err: any) {
+            res.status(400).json({ error: err.message });
+        }
+    },
+
+    // Edit QRIS image (PUT /profile/qris)
+    async editQrisController(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.userId;
+            const { qrisUrl } = req.body;
+
+            if (!userId) return res.status(401).json({ error: "Unauthorized" });
+            if (!qrisUrl) return res.status(400).json({ error: "qrisUrl is required" });
+
+            const updated = await editQrisService(userId, qrisUrl);
+
+            res.status(200).json({
+                message: "QRIS updated successfully",
+                user: {
+                    user_id: updated.user_id,
+                    username: updated.username,
+                    email: updated.email,
+                    qrisCode: updated.qrisCode
+                }
+            });
+        } catch (err: any) {
+            res.status(400).json({ error: err.message });
+        }
+    },
+
+    // Delete QRIS image (DELETE /profile/qris)
+    async deleteQrisController(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.userId;
+
+            if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+            const updated = await deleteQrisService(userId);
+
+            res.status(200).json({
+                message: "QRIS deleted successfully",
+                user: {
+                    user_id: updated.user_id,
+                    username: updated.username,
+                    email: updated.email,
+                    qrisCode: updated.qrisCode
+                }
+            });
+        } catch (err: any) {
+            res.status(400).json({ error: err.message });
         }
     },
 };

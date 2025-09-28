@@ -128,10 +128,12 @@ model Payment {
 }
 
 model Profile {
-  id       Int     @id @default(autoincrement())
-  username String? @unique
-  name     String
-  image    String?
-  userId   Int     @unique
-  user     User    @relation(fields: [userId], references: [user_id])
+  id        Int      @id @default(autoincrement())
+  username  String
+  name      String
+  image     String?
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [user_id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
