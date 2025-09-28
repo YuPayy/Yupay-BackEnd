@@ -7,7 +7,6 @@ import { registerUser, loginUser, forgotPasswordService, resetPasswordService } 
 export const registerController = async (req: Request, res: Response) => {
     try {
         const parsed = registerSchema.parse(req.body);
-
         const user = await registerUser(
             parsed.username,
             parsed.email,

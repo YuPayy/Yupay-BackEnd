@@ -54,7 +54,7 @@ router.get(
       );
     }
 
-    res.json({
+    /*res.json({
       user: {
         email: user?.email || null,
         name: user?.displayName || null,
@@ -62,7 +62,8 @@ router.get(
       },
       provider: "google",
       token,
-    });
+    });*/
+    res.redirect(`http://localhost:3001/pages/home?token=${token}`);
   }
 );
 
