@@ -42,6 +42,7 @@ app.use("/auth", authRoutes);
 app.use("/friends", authMiddleware, friendsRoutes);
 app.use("/profile", profileRoutes);
 app.use("/group", groupRoutes);
+app.use("/api/v1/nota", notaRoutes);
 
 
 
