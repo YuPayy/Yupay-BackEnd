@@ -1,33 +1,42 @@
 import axios from 'axios';
+import FormData from 'form-data';
+
+const OCR_URL = process.env.PYTHON_OCR_URL || 'http://localhost:5000/ocr';
+const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS) || 30000;
 
 export const ocrService = {
     async scanReceipt(imageBuffer: Buffer) {
         try {
-            // 1. Kirim file ke Backend Python (EasyOCR)
             const formData = new FormData();
-            const blob = new Blob([imageBuffer]);
-            formData.append('image', blob, 'receipt.jpg');
-
-            const pythonResponse = await axios.post('http://localhost:5000/ocr', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            formData.append('image', imageBuffer, {
+                filename: 'receipt.jpg',
+                contentType: 'image/jpeg',
             });
 
-            // 2. Olah hasil dari Python (misal Python mengembalikan { items: [...], total: 10000 })
+            const pythonResponse = await axios.post(OCR_URL, formData, {
+                headers: formData.getHeaders(),
+                timeout: OCR_TIMEOUT_MS,
+                maxBodyLength: 15 * 1024 * 1024,
+                maxContentLength: 15 * 1024 * 1024,
+            });
+
             const { items, total_price } = pythonResponse.data;
 
-            // 3. Format agar siap dimasukkan ke Prisma (MySQL)
             return {
                 tanggalTransaksi: new Date(),
                 totalHarga: total_price,
                 items: items.map((item: any) => ({
                     namaItem: item.name,
                     quantity: item.qty,
-                    harga: item.price
-                }))
+                    harga: item.price,
+                })),
             };
         } catch (error) {
-            console.error("Gagal menghubungi Python OCR:", error);
-            throw new Error("OCR Processing Failed");
+            const detail = axios.isAxiosError(error)
+                ? `[${error.code || 'ERR'}] ${error.message}`
+                : (error as Error).message;
+            console.error(`Gagal menghubungi Python OCR di ${OCR_URL}:`, detail);
+            throw new Error(`OCR Processing Failed: ${detail}`);
         }
-    }
+    },
 };
