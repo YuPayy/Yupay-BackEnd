@@ -1,34 +1,17 @@
-# Dependencies
-node_modules/
-Backend/node_modules/
-
-# Python
-__pycache__/
+node_modules
+__pycache__
 *.pyc
 *.pyo
-.venv/
-venv/
-env/
-
-# Env
+.venv
+venv
+env
 .env
-Backend/.env
-OCR/.env
-OCR/app/__pycache__/
-
-# Build
-dist/
-build/
+src/generated/prisma
+dist
+build
 *.tsbuildinfo
-
-# Prisma generated
-Backend/src/generated/prisma
-
-# IDE
-.idea/
-.vscode/
+.idea
+.vscode
 .DS_Store
-
-# Logs
 *.log
 npm-debug.log*
