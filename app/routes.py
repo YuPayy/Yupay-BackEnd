@@ -48,6 +48,13 @@ async def read_ocr(file: UploadFile = File(..., alias="image")):
         logger.info(f"Memulai proses OCR untuk file: {file.filename} ({len(file_bytes)} bytes)")
         result = await extract_text_and_total_bytes(file_bytes, file.filename or "receipt.jpg")
 
+        if result.get("status") == "error":
+            logger.error(f"OCR gagal: {result.get('error')}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"OCR processing error: {result.get('error')}",
+            )
+
         if result["total"] is None:
             logger.warning("OCR berhasil tapi gagal menemukan angka nominal (total)")
 
