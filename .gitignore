@@ -17,3 +17,9 @@ build
 npm-debug.log*
 postman/Yupay.postman_collection.json
 postman/Yupay.local.postman_environment.json
+coverage/
+.pytest_cache/
+*.pyc
+htmlcov/
+.coverage
+.coverage.*
