@@ -130,7 +130,7 @@ router.post("/unfriend", unfriendController);
  * /friends:
  *   get:
  *     tags: [Friends]
- *     summary: List semua teman (status: accepted)
+ *     summary: "List semua teman (status: accepted)"
  *     responses:
  *       200:
  *         description: List teman
@@ -150,7 +150,7 @@ router.get("/", listFriendsController);
  * /friends/pending:
  *   get:
  *     tags: [Friends]
- *     summary: List friend request yang masuk (status: pending)
+ *     summary: "List friend request yang masuk (status: pending)"
  *     responses:
  *       200:
  *         description: List pending request

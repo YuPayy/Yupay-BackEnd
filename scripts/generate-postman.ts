@@ -62,7 +62,7 @@ async function main() {
     name: "Yupay Local",
     values: [
       { key: "base_url", value: "http://localhost:3000", enabled: true },
-      { key: "auth_token", value: "", enabled: true },
+      { key: "bearerToken", value: "", enabled: true },
       { key: "ocr_service_url", value: "http://localhost:5057", enabled: true },
     ],
     _postman_variable_scope: "environment",
