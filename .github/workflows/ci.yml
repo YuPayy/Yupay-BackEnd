@@ -105,6 +105,8 @@ jobs:
           pip install pytest pytest-asyncio httpx pytest-cov pillow
 
       - name: Run tests with coverage
+        env:
+          PYTHONPATH: .
         run: |
           pytest tests_py/ --cov=app --cov-report=term-missing --cov-report=xml
 
