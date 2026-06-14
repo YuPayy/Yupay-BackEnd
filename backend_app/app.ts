@@ -1,12 +1,15 @@
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
 import cors from "cors";
+import path from "path";
 import authRoutes from "../src/modules/auth/auth.route";
 import friendsRoutes from "../src/modules/friends/friends.routes";
 import profileRoutes from "../src/modules/profile/profile.routes";
 import groupRoutes from "../src/modules/group_pembayaran/group.routes";
 import notaRoutes from "../src/modules/nota/nota.route";
 import notifikasiRoutes from "../src/modules/notifikasi/notifikasi.routes";
+import klaimRoutes from "../src/modules/klaim/klaim.route";
+import paymentRoutes from "../src/modules/payment/payment.route";
 import "../src/modules/auth/google.passport";
 import { authMiddleware } from "../src/modules/auth/auth.middleware";
 import { mountSwagger } from "./swagger";
@@ -50,6 +53,9 @@ app.use("/profile", profileRoutes);
 app.use("/group", groupRoutes);
 app.use("/api/v1/nota", notaRoutes);
 app.use("/api/v1/notifikasi", authMiddleware, notifikasiRoutes);
+app.use("/api/v1/klaim", authMiddleware, klaimRoutes);
+app.use("/api/v1/payment", authMiddleware, paymentRoutes);
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 
 

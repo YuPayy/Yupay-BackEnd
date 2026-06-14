@@ -25,3 +25,5 @@ reports/
 htmlcov/
 .coverage
 .coverage.*
+uploads/payments/*
+!uploads/payments/.gitkeep
