@@ -182,6 +182,8 @@ OCR service akan callback ke \`TS_BACKEND_URL\` dengan bearer token.
       { name: "Group", description: "Group pembayaran (split bill bersama)" },
       { name: "Nota", description: "Nota/bill CRUD + OCR scan" },
       { name: "Notifikasi", description: "In-app notification" },
+      { name: "Klaim", description: "Split bill & klaim item management" },
+      { name: "Payment", description: "Payment & upload bukti transfer" },
     ],
   },
   apis: [
