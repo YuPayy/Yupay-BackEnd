@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: "Run E2E tests?"
+        required: false
+        default: "false"
+
+env:
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ─────────────────────────────────────
+  # Job 1: Backend (Node.js + TypeScript)
+  # ─────────────────────────────────────
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: yupay_test_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -ptestpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: "mysql://root:testpass@127.0.0.1:3306/yupay_test_db"
+      JWT_SECRET: "ci-test-secret"
+      NODE_ENV: "test"
+      GOOGLE_CLIENT_ID: "placeholder"
+      GOOGLE_CLIENT_SECRET: "placeholder"
+      PYTHON_OCR_URL: "http://localhost:5057/ocr"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test -- --forceExit --coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage/
+
+  # ─────────────────────────────────────
+  # Job 2: OCR Service (Python)
+  # ─────────────────────────────────────
+  ocr:
+    name: OCR Tests
+    runs-on: ubuntu-latest
+
+    env:
+      SYNC_CALLBACK_ENABLED: "false"
+      TS_BACKEND_URL: "http://localhost:3000/api/v1/nota"
+      INTERNAL_AUTH_TOKEN: "ci-test-token"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx pytest-cov pillow
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests_py/ --cov=app --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-coverage
+          path: coverage.xml
+
+  # ─────────────────────────────────────
+  # Job 3: E2E (manual trigger only)
+  # ─────────────────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_e2e == 'true'
+    needs: [backend, ocr]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: yupay_e2e_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -ptestpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: "mysql://root:testpass@127.0.0.1:3306/yupay_e2e_db"
+      JWT_SECRET: "ci-e2e-secret"
+      NODE_ENV: "test"
+      GOOGLE_CLIENT_ID: "placeholder"
+      GOOGLE_CLIENT_SECRET: "placeholder"
+      PYTHON_OCR_URL: "http://localhost:5057/ocr"
+      SYNC_CALLBACK_ENABLED: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup database
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Start server
+        run: |
+          npx ts-node-dev --transpile-only backend_app/server.ts &
+          for i in {1..30}; do curl -s -f http://localhost:3000/ && exit 0; sleep 1; done; exit 1
+
+      - name: Run E2E tests
+        run: npm run test:e2e:ci
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: reports/
