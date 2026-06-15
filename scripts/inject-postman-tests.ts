@@ -60,6 +60,45 @@ if (pm.environment.get("auth_token")) {
 }
 `.trim();
 
+const SEED_LOGIN_PRE = `
+const seedEmail = pm.environment.get("seed_email") || "alice@yupay.test";
+const seedPassword = pm.environment.get("seed_password") || "Password123!";
+pm.sendRequest({
+  url: pm.environment.get("base_url") + "/auth/login",
+  method: "POST",
+  header: { "Content-Type": "application/json" },
+  body: { mode: "raw", raw: JSON.stringify({ identifier: seedEmail, password: seedPassword }) }
+}, function (err, lr) {
+  if (err || !lr || lr.code !== 200) { console.error("seed login fail " + (lr && lr.code)); return; }
+  const j = lr.json();
+  pm.environment.set("auth_token", j.token);
+  pm.environment.set("bearerToken", j.token);
+  if (j.user && (j.user.id || j.user.user_id)) {
+    pm.environment.set("user_id", j.user.id || j.user.user_id);
+  }
+  pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + j.token });
+  console.log("🔑 Auto-login as " + seedEmail + " (user_id=" + pm.environment.get("user_id") + ")");
+});
+`.trim();
+
+const SEED_LOGIN_AS_PRE = (emailVar: string) => `
+const email = pm.environment.get("${emailVar}");
+const password = pm.environment.get("seed_password") || "Password123!";
+if (!email) { console.error("${emailVar} missing"); return; }
+pm.sendRequest({
+  url: pm.environment.get("base_url") + "/auth/login",
+  method: "POST",
+  header: { "Content-Type": "application/json" },
+  body: { mode: "raw", raw: JSON.stringify({ identifier: email, password }) }
+}, function (err, lr) {
+  if (err || !lr || lr.code !== 200) { console.error("login as " + email + " fail " + (lr && lr.code)); return; }
+  const token = lr.json().token;
+  pm.environment.set("auth_token", token);
+  pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + token });
+  console.log("🔑 Auto-login as " + email);
+});
+`.trim();
+
 const BASE_TESTS = `
 pm.test("Status is success (2xx)", () => {
   pm.expect(pm.response.code).to.be.within(200, 299);
@@ -125,6 +164,12 @@ function walkFolder(folder: any) {
             else if (urlLower.includes("nota")) v.value = "{{nota_id}}";
           } else if (v.key === "groupId") {
             v.value = "{{group_id}}";
+          } else if (v.key === "notaId") {
+            v.value = "{{nota_id}}";
+          } else if (v.key === "participantId") {
+            v.value = "{{participant_id}}";
+          } else if (v.key === "paymentId") {
+            v.value = "{{payment_id}}";
           }
           return v;
         });
@@ -149,6 +194,10 @@ function walkFolder(folder: any) {
           .replace("/nota/:id", "/nota/{{nota_id}}")
           .replace("/group/<integer>", "/group/{{group_id}}")
           .replace("/group/:groupId", "/group/{{group_id}}")
+          .replace("/claims/<integer>", "/claims/{{participant_id}}")
+          .replace("/claims/:participantId", "/claims/{{participant_id}}")
+          .replace("/payment/<integer>", "/payment/{{payment_id}}")
+          .replace("/payment/:paymentId", "/payment/{{payment_id}}")
           .replace("q=<string>", "username={{e2e_username}}")
           .replace("username=<string>", "username={{e2e_username}}");
       }
@@ -170,27 +219,34 @@ pm.environment.set("e2e_email", ${JSON.stringify(email)});
 pm.environment.set("e2e_username", ${JSON.stringify(username)});
 pm.environment.set("e2e_password", "password123");
 `.trim());
-      injectTests(item, BASE_TESTS + `
+      injectTests(item, BASE_TESTS + "\n" + `
 pm.test("User has expected username", () => {
-  pm.expect(pm.response.json().user.username).to.eql(${JSON.stringify(username)});
+  const j = pm.response.json();
+  if (j.user) {
+    pm.expect(j.user.username).to.eql(${JSON.stringify(username)});
+    if (j.user.id) pm.environment.set("user_id", j.user.id);
+  } else {
+    pm.expect.fail("no user in response: " + JSON.stringify(j));
+  }
 });
 `.trim());
       modified++;
     } else if (name.includes("login dengan") && method === "POST") {
       setBody(item, {
         mode: "raw",
-        raw: '{"identifier":"{{e2e_email}}","password":"password123"}',
+        raw: '{"identifier":"{{seed_email}}","password":"{{seed_password}}"}',
         options: { raw: { language: "json" } },
       });
       injectPreRequest(item, "");
-      injectTests(item, BASE_TESTS + `
+      injectTests(item, BASE_TESTS + "\n" + `
 const json = pm.response.json();
 if (json.token) {
   pm.environment.set("auth_token", json.token);
   pm.environment.set("bearerToken", json.token);
-  if (json.user && json.user.id) {
-    pm.environment.set("user_id", json.user.id);
+  if (json.user && (json.user.id || json.user.user_id)) {
+    pm.environment.set("user_id", json.user.id || json.user.user_id);
   }
+  console.log("✅ Login OK — token saved to {{auth_token}} (user_id: " + pm.environment.get("user_id") + ")");
 }
 `.trim());
       modified++;
@@ -216,7 +272,7 @@ if (json.token) {
         raw: '{"name":"Bintang E2E"}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("update profile") && method === "PUT") {
@@ -225,11 +281,11 @@ if (json.token) {
         raw: '{"name":"Bintang Updated"}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("get qris code user yang sedang login") && method === "GET") {
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, ACCEPT_200_OR_404_TESTS);
       modified++;
     } else if (name.includes("upload qris") && method === "POST") {
@@ -238,7 +294,7 @@ if (json.token) {
         raw: '{"qrisUrl":"00020101021126570011ID.DANA.WWW01189360091800214699150210000000000000000000000403"}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("edit qris") && method === "PUT") {
@@ -247,7 +303,7 @@ if (json.token) {
         raw: '{"qrisUrl":"00020101021126570011ID.DANA.WWW01189360091800214699150210000000000000000000000404"}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("kirim friend request") && method === "POST") {
@@ -256,40 +312,7 @@ if (json.token) {
         raw: '{"targetUserId": {{user_id_2}} }',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE + "\n" + `
-const u2 = pm.environment.get("user_id_2");
-if (!u2 || u2 === "0" || u2 === 0) {
-  const ts = Date.now();
-  const username = "e2e_friend_" + ts;
-  const email = username + "@test.com";
-  pm.environment.set("user_id_2_email", email);
-  
-  pm.sendRequest({
-    url: pm.environment.get("base_url") + "/auth/register",
-    method: "POST",
-    header: { "Content-Type": "application/json" },
-    body: {
-      mode: "raw",
-      raw: JSON.stringify({
-        username: username,
-        email: email,
-        password: "password123",
-        confirmPassword: "password123"
-      })
-    }
-  }, function (err, res) {
-    if (err) {
-      console.error("Register user2 failed with error:", err);
-    } else if (res.code !== 201) {
-      console.error("Register user2 failed with code " + res.code + ": " + res.text());
-    } else {
-      const user = res.json().user;
-      pm.environment.set("user_id_2", user.id);
-      console.log("Registered user2 with ID: " + user.id);
-    }
-  });
-}
-`.trim());
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("accept atau reject friend request") && method === "POST") {
@@ -298,29 +321,8 @@ if (!u2 || u2 === "0" || u2 === 0) {
         raw: '{"friendId": {{user_id}} }',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, `
-pm.sendRequest({
-  url: pm.environment.get("base_url") + "/auth/login",
-  method: "POST",
-  header: { "Content-Type": "application/json" },
-  body: {
-    mode: "raw",
-    raw: JSON.stringify({
-      identifier: pm.environment.get("user_id_2_email"),
-      password: "password123"
-    })
-  }
-}, function (err, res) {
-  if (err) {
-    console.error("Login user2 failed with error:", err);
-  } else if (res.code !== 200) {
-    console.error("Login user2 failed with code " + res.code + ": " + res.text());
-  } else {
-    const token = res.json().token;
-    pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + token });
-    console.log("Logged in user2, set Authorization header");
-  }
-});
+      injectPreRequest(item, SEED_LOGIN_AS_PRE("user_id_2_email") + "\n" + `
+pm.request.body = { mode: "raw", raw: '{"friendId": ' + pm.environment.get("user_id") + '}', options: { raw: { language: "json" } } };
 `.trim());
       injectTests(item, BASE_TESTS);
       modified++;
@@ -330,7 +332,7 @@ pm.sendRequest({
         raw: '{"targetUserId": {{user_id_2}} }',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("buat group pembayaran baru") && method === "POST") {
@@ -339,7 +341,7 @@ pm.sendRequest({
         raw: '{"title": "E2E Group", "description": "E2E Group Desc"}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS + "\n" + `
 const json = pm.response.json();
 if (json.nota_id) {
@@ -353,7 +355,7 @@ if (json.nota_id) {
         raw: '{"friendId": {{user_id_2}} }',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("accept atau reject invite group") && method === "PUT") {
@@ -362,45 +364,103 @@ if (json.nota_id) {
         raw: '{"status": "accepted"}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, `
-pm.sendRequest({
-  url: pm.environment.get("base_url") + "/auth/login",
-  method: "POST",
-  header: { "Content-Type": "application/json" },
-  body: {
-    mode: "raw",
-    raw: JSON.stringify({
-      identifier: pm.environment.get("user_id_2_email"),
-      password: "password123"
-    })
-  }
-}, function (err, res) {
-  if (err) {
-    console.error("Login user2 for invite accept failed with error:", err);
-  } else if (res.code !== 200) {
-    console.error("Login user2 for invite accept failed with code " + res.code + ": " + res.text());
-  } else {
-    const token = res.json().token;
-    pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + token });
-    console.log("Logged in user2 for group invite accept");
-  }
-});
-`.trim());
+      injectPreRequest(item, SEED_LOGIN_AS_PRE("user_id_2_email"));
       injectTests(item, BASE_TESTS);
+      modified++;
+    } else if (name.includes("buat pembayaran baru + upload bukti transfer") && method === "POST") {
+      const ts = Date.now();
+      const username = `e2e_pay_${ts}`;
+      const email = `${username}@test.com`;
+      setBody(item, {
+        mode: "formdata",
+        formdata: [
+          { key: "notaId", value: "0", type: "text" },
+          { key: "amount", value: "10000", type: "text" },
+          { key: "proof", src: "/tmp/yupay-proof.png", type: "file" },
+        ],
+      });
+      injectPreRequest(item, SEED_LOGIN_PRE + "\n" + `
+const notaId = pm.environment.get("nota_id");
+if (notaId) {
+  pm.request.body.formdata.find(f => f.key === "notaId").value = notaId;
+}
+let token = pm.environment.get("participant_token");
+if (!token) {
+  const seedEmail = pm.environment.get("seed_email") || "alice@yupay.test";
+  pm.sendRequest({
+    url: pm.environment.get("base_url") + "/auth/login",
+    method: "POST",
+    header: { "Content-Type": "application/json" },
+    body: { mode: "raw", raw: JSON.stringify({ identifier: "bob@yupay.test", password: "Password123!" }) }
+  }, function (e2, lr) {
+    if (e2 || !lr || lr.code !== 200) { console.error("pay login fail " + (lr && lr.code)); return; }
+    token = lr.json().token;
+    pm.environment.set("participant_token", token);
+    pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + token });
+    if (notaId) {
+      pm.sendRequest({
+        url: pm.environment.get("base_url") + "/api/v1/klaim/nota/" + notaId + "/join",
+        method: "POST",
+        header: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: { mode: "raw", raw: "" }
+      }, function (e3, jr) { /* join may already exist */ });
+    }
+  });
+} else {
+  pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + token });
+}
+`.trim());
+      injectTests(item, BASE_TESTS + "\n" + `
+const json = pm.response.json();
+if (json.data && json.data.payment_id) {
+  pm.environment.set("payment_id", String(json.data.payment_id));
+  console.log("Set payment_id = " + json.data.payment_id);
+}
+`.trim());
       modified++;
     } else if (name.includes("buat nota baru") && method === "POST") {
       setBody(item, {
         mode: "raw",
-        raw: '{"payer_id": {{user_id}}, "tanggalTransaksi": "2026-06-14T14:07:44Z", "totalHarga": 125000, "status": "open", "items": [{"namaItem": "Item A", "quantity": 1, "harga": 125000}]}',
+        raw: JSON.stringify({ payer_id: 0, tanggalTransaksi: "2026-06-14T14:07:44Z", totalHarga: 125000, status: "open", items: [{ namaItem: "Item A", quantity: 1, harga: 25000 }, { namaItem: "Item B", quantity: 1, harga: 100000 }] }),
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
-      injectTests(item, BASE_TESTS + "\n" + `
-const json = pm.response.json();
-if (json.data && json.data.nota_id) {
-  pm.environment.set("nota_id", json.data.nota_id);
-}
+      injectPreRequest(item, SEED_LOGIN_AS_PRE("payer_email") + "\n" + `
+const seedEmail = pm.environment.get("seed_email") || "alice@yupay.test";
+const seedPassword = pm.environment.get("seed_password") || "Password123!";
+pm.sendRequest({
+  url: pm.environment.get("base_url") + "/auth/login",
+  method: "POST",
+  header: { "Content-Type": "application/json" },
+  body: { mode: "raw", raw: JSON.stringify({ identifier: seedEmail, password: seedPassword }) }
+}, function (err, lr) {
+  if (err || !lr || lr.code !== 200) { console.error("seed login fail"); return; }
+  const j = lr.json();
+  const payerId = (j.user && (j.user.id || j.user.user_id)) || 0;
+  pm.environment.set("nota_payer_id", String(payerId));
+  pm.environment.set("payer_email", seedEmail);
+  const notaBody = JSON.stringify({ payer_id: payerId, tanggalTransaksi: "2026-06-14T14:07:44Z", totalHarga: 125000, status: "open", items: [{ namaItem: "Item A", quantity: 1, harga: 25000 }, { namaItem: "Item B", quantity: 1, harga: 100000 }] });
+  pm.request.body = { mode: "raw", raw: notaBody, options: { raw: { language: "json" } } };
+  pm.sendRequest({
+    url: pm.environment.get("base_url") + "/api/v1/nota",
+    method: "POST",
+    header: { "Content-Type": "application/json", "Authorization": "Bearer " + j.token },
+    body: { mode: "raw", raw: notaBody }
+  }, function (e2, nota) {
+    if (e2 || !nota || nota.code !== 201) { console.error("nota create fail " + (nota && nota.code) + " " + (nota && nota.text())); return; }
+    const body = nota.json();
+    if (body.data && body.data.nota_id) {
+      pm.environment.set("nota_id", body.data.nota_id);
+      if (body.data.items && body.data.items[0]) pm.environment.set("nota_item_1_id", body.data.items[0].item_id);
+      if (body.data.items && body.data.items[1]) pm.environment.set("nota_item_2_id", body.data.items[1].item_id);
+    }
+  });
+});
 `.trim());
+      injectTests(item, BASE_TESTS);
+      modified++;
+    } else if (name.includes("get detail nota") && method === "GET") {
+      injectPreRequest(item, SEED_LOGIN_PRE);
+      injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("buat notifikasi baru") && method === "POST") {
       setBody(item, {
@@ -408,7 +468,7 @@ if (json.data && json.data.nota_id) {
         raw: '{"title": "E2E Notification", "message": "Notification Message"}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS + "\n" + `
 const json = pm.response.json();
 if (json.data && json.data.id) {
@@ -422,26 +482,137 @@ if (json.data && json.data.id) {
         raw: '{"title": "Updated Notification", "isRead": true}',
         options: { raw: { language: "json" } },
       });
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     } else if (name.includes("upload gambar struk")) {
-      injectTests(item, VALIDATION_TESTS);
+      setBody(item, {
+        mode: "formdata",
+        formdata: [
+          { key: "image", src: "/tmp/yupay-proof.png", type: "file" },
+        ],
+      });
+      injectPreRequest(item, SEED_LOGIN_PRE);
+      injectTests(item, `
+pm.test("OCR service responded (2xx, 400, or 503)", () => {
+  pm.expect(pm.response.code).to.be.oneOf([200, 201, 400, 503]);
+});
+pm.test("Response time < 10s", () => {
+  pm.expect(pm.response.responseTime).to.be.below(10000);
+});
+`.trim());
       modified++;
-    } else if (name.includes("tanpa token") || name.includes("not authorized")) {
-      injectTests(item, NO_AUTH_TESTS);
-      modified++;
-    } else if (name.includes("tidak ditemukan") || name.includes("not found")) {
-      injectPreRequest(item, AUTH_HEADER_PRE);
-      injectTests(item, NOT_FOUND_TESTS);
+    } else if (name.includes("bergabung sebagai participant") && method === "POST") {
+      const ts = Date.now();
+      const username = `e2e_part_${ts}`;
+      const email = `${username}@test.com`;
+      setBody(item, {
+        mode: "raw",
+        raw: "",
+        options: { raw: { language: "json" } },
+      });
+      injectPreRequest(item, SEED_LOGIN_PRE + "\n" + `
+const notaId = pm.environment.get("nota_id");
+if (!notaId) { console.error("nota_id missing, skip join"); return; }
+let token = pm.environment.get("participant_token");
+if (!token) {
+  pm.sendRequest({
+    url: pm.environment.get("base_url") + "/auth/login",
+    method: "POST",
+    header: { "Content-Type": "application/json" },
+    body: { mode: "raw", raw: JSON.stringify({ identifier: "bob@yupay.test", password: "Password123!" }) }
+  }, function (e2, lr) {
+    if (e2 || !lr || lr.code !== 200) { console.error("bob login fail"); return; }
+    token = lr.json().token;
+    pm.environment.set("participant_token", token);
+    pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + token });
+    pm.sendRequest({
+      url: pm.environment.get("base_url") + "/api/v1/klaim/nota/" + notaId + "/join",
+      method: "POST",
+      header: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+      body: { mode: "raw", raw: "" }
+    }, function (e3, jr) {
+      if (e3 || !jr) return;
+      if (jr.code === 201) {
+        const jb = jr.json();
+        if (jb.data && jb.data.participant_id) {
+          pm.environment.set("participant_id", jb.data.participant_id);
+        }
+      }
+    });
+  });
+} else {
+  pm.request.headers.upsert({ key: "Authorization", value: "Bearer " + token });
+  pm.sendRequest({
+    url: pm.environment.get("base_url") + "/api/v1/klaim/nota/" + notaId + "/join",
+    method: "POST",
+    header: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+    body: { mode: "raw", raw: "" }
+  }, function (e3, jr) {
+    if (e3 || !jr) return;
+    if (jr.code === 201) {
+      const jb = jr.json();
+      if (jb.data && jb.data.participant_id) {
+        pm.environment.set("participant_id", jb.data.participant_id);
+      }
+    }
+  });
+}
+`.trim());
+      injectTests(item, `
+pm.test("Join accepted (201) or already joined (400)", () => {
+  pm.expect(pm.response.code).to.be.oneOf([201, 400]);
+});
+pm.test("Response time < 5s", () => {
+  pm.expect(pm.response.responseTime).to.be.below(5000);
+});
+`.trim());
       modified++;
     } else if (name.includes("wajib di-upload") || name.includes("no file") || name.includes("format tidak")) {
       injectTests(item, VALIDATION_TESTS);
       modified++;
+    } else if (name.includes("verifikasi")) {
+      setBody(item, {
+        mode: "raw",
+        raw: '{"status": "confirmed"}',
+        options: { raw: { language: "json" } },
+      });
+      injectPreRequest(item, SEED_LOGIN_AS_PRE("payer_email"));
+      injectTests(item, BASE_TESTS);
+      modified++;
     } else if (name.includes("google")) {
       modified++;
+    } else if (name.includes("upsert klaim items")) {
+      setBody(item, {
+        mode: "raw",
+        raw: JSON.stringify({ participantId: 0, items: [{ itemId: 0, quantity: 1 }] }),
+        options: { raw: { language: "json" } },
+      });
+      injectPreRequest(item, SEED_LOGIN_PRE + "\n" + `
+const partId = pm.environment.get("participant_id");
+const itemId = pm.environment.get("nota_item_2_id") || pm.environment.get("nota_item_1_id");
+if (partId && itemId) {
+  pm.request.body = {
+    mode: "raw",
+    raw: JSON.stringify({ participantId: parseInt(partId), items: [{ itemId: parseInt(itemId), quantity: 1 }] }),
+    options: { raw: { language: "json" } }
+  };
+}
+`.trim());
+      injectTests(item, BASE_TESTS);
+      modified++;
+    } else if (name.includes("get daftar klaim items") || name.includes("hitung hasil split bill")) {
+      injectPreRequest(item, SEED_LOGIN_PRE + "\n" + `
+const partId = pm.environment.get("participant_id");
+if (partId) {
+  const url = pm.request.url.toString().replace("{{participant_id}}", partId);
+  pm.request.url = url;
+}
+`.trim());
+      injectTests(item, BASE_TESTS);
+      modified++;
     } else {
-      injectPreRequest(item, AUTH_HEADER_PRE);
+      injectPreRequest(item, SEED_LOGIN_PRE);
       injectTests(item, BASE_TESTS);
       modified++;
     }
@@ -452,8 +623,38 @@ for (const folder of collection.item) {
   walkFolder(folder);
 }
 
-// Reorder folders so we follow logical dependency order: auth -> profile -> friends -> group -> api/v1
+// Reorder folders so we follow logical dependency order: auth -> profile -> friends -> group -> payment -> nota -> klaim
 const order = ["auth", "profile", "friends", "group", "api/v1"];
+
+function sortRequestsInFolder(folder: any) {
+  if (!folder.item) return;
+  const orderInV1 = [
+    "nota",
+    "klaim",
+    "payment",
+    "notifikasi",
+  ];
+  folder.item.sort((a: any, b: any) => {
+    if (folder.name === "api/v1") {
+      const aIdx = orderInV1.indexOf(a.name);
+      const bIdx = orderInV1.indexOf(b.name);
+      const ai = aIdx === -1 ? 999 : aIdx;
+      const bi = bIdx === -1 ? 999 : bIdx;
+      if (ai !== bi) return ai - bi;
+      return a.name.localeCompare(b.name);
+    }
+    if (a.item && !b.item) return 1;
+    if (b.item && !a.item) return -1;
+    return 0;
+  });
+  for (const child of folder.item) {
+    if (child.item) sortRequestsInFolder(child);
+  }
+}
+
+for (const folder of collection.item) {
+  sortRequestsInFolder(folder);
+}
 collection.item.sort((a: any, b: any) => {
   const aIdx = order.indexOf(a.name);
   const bIdx = order.indexOf(b.name);

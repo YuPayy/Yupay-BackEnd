@@ -112,15 +112,16 @@ model Otp {
 }
 
 model Payment {
-  payment_id   Int      @id @default(autoincrement())
-  nota_id      Int
-  from_user_id Int
-  to_user_id   Int
-  amount       Decimal
-  status       String   @default("pending")
-  proofUrl     String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  payment_id        Int      @id @default(autoincrement())
+  nota_id           Int
+  from_user_id      Int
+  to_user_id        Int
+  amount            Decimal
+  status            String   @default("pending")
+  proofUrl          String?
+  rejectionReason   String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Relasi
   nota Nota @relation(fields: [nota_id], references: [nota_id])

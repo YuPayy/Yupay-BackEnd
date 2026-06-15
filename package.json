@@ -9,6 +9,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
+    "prisma:seed": "tsx prisma/seed.ts",
     "docs:postman": "tsx scripts/generate-postman.ts",
     "docs:postman:tests": "tsx scripts/inject-postman-tests.ts",
     "docs:postman:all": "tsx scripts/generate-postman.ts && tsx scripts/inject-postman-tests.ts",
@@ -36,6 +37,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.5.2",
     "express-validator": "^7.2.1",
     "form-data": "^4.0.6",
     "helmet": "^8.1.0",
@@ -44,9 +46,11 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "mysql2": "^3.15.0",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.6",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "socket.io": "^4.8.3",
     "supertest": "^7.1.4",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
@@ -62,9 +66,11 @@
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.0",
+    "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.1",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.16",
+    "@types/socket.io": "^3.0.1",
     "@types/supertest": "^7.2.0",
     "dotenv-cli": "^11.0.0",
     "newman": "^6.2.2",
@@ -75,5 +81,8 @@
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.22.4",
     "typescript": "^5.9.2"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

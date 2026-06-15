@@ -6,8 +6,15 @@ import {
 } from "./notifikasi.schema";
 import { notifikasiService } from "./notifikasi.service";
 
-export const getAllNotifikasi = async (_req: Request, res: Response) => {
-  const items = await notifikasiService.findAll();
+const getUserId = (req: Request): number | null => {
+  const u = (req as any).user;
+  return u?.userId ?? null;
+};
+
+export const getAllNotifikasi = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+  const items = await notifikasiService.findAll(userId);
   return res.status(200).json({
     message: "Berhasil mengambil data notifikasi",
     data: items,
@@ -15,6 +22,8 @@ export const getAllNotifikasi = async (_req: Request, res: Response) => {
 };
 
 export const getNotifikasiById = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
   const parsedParam = idParamSchema.safeParse(req.params);
   if (!parsedParam.success) {
     return res.status(400).json({
@@ -23,7 +32,7 @@ export const getNotifikasiById = async (req: Request, res: Response) => {
     });
   }
 
-  const item = await notifikasiService.findById(parsedParam.data.id);
+  const item = await notifikasiService.findById(parsedParam.data.id, userId);
   if (!item) {
     return res.status(404).json({ message: "Notifikasi tidak ditemukan" });
   }
@@ -35,6 +44,8 @@ export const getNotifikasiById = async (req: Request, res: Response) => {
 };
 
 export const createNotifikasi = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
   const parsedBody = createNotifikasiSchema.safeParse(req.body);
   if (!parsedBody.success) {
     return res.status(400).json({
@@ -43,7 +54,7 @@ export const createNotifikasi = async (req: Request, res: Response) => {
     });
   }
 
-  const item = await notifikasiService.create(parsedBody.data);
+  const item = await notifikasiService.create(userId, parsedBody.data);
   return res.status(201).json({
     message: "Notifikasi berhasil dibuat",
     data: item,
@@ -51,6 +62,8 @@ export const createNotifikasi = async (req: Request, res: Response) => {
 };
 
 export const updateNotifikasi = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
   const parsedParam = idParamSchema.safeParse(req.params);
   if (!parsedParam.success) {
     return res.status(400).json({
@@ -69,6 +82,7 @@ export const updateNotifikasi = async (req: Request, res: Response) => {
 
   const updated = await notifikasiService.update(
     parsedParam.data.id,
+    userId,
     parsedBody.data
   );
 
@@ -83,6 +97,8 @@ export const updateNotifikasi = async (req: Request, res: Response) => {
 };
 
 export const deleteNotifikasi = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
   const parsedParam = idParamSchema.safeParse(req.params);
   if (!parsedParam.success) {
     return res.status(400).json({
@@ -91,7 +107,7 @@ export const deleteNotifikasi = async (req: Request, res: Response) => {
     });
   }
 
-  const deleted = await notifikasiService.remove(parsedParam.data.id);
+  const deleted = await notifikasiService.remove(parsedParam.data.id, userId);
   if (!deleted) {
     return res.status(404).json({ message: "Notifikasi tidak ditemukan" });
   }

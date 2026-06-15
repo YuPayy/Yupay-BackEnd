@@ -1,63 +1,59 @@
-import type {
-  CreateNotifikasiInput,
-  UpdateNotifikasiInput,
-} from "./notifikasi.schema";
+import { PrismaClient } from "@prisma/client";
+import { CreateNotifikasiInput, UpdateNotifikasiInput } from "./notifikasi.schema";
 
-export type Notifikasi = {
-  id: number;
-  title: string;
-  message: string;
-  isRead: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-const data: Notifikasi[] = [];
-let nextId = 1;
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const prisma = globalForPrisma.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export const notifikasiService = {
-  findAll: async (): Promise<Notifikasi[]> => data,
+    findAll: async (userId: number) => {
+        return prisma.notifikasi.findMany({
+            where: { userId },
+            orderBy: { createdAt: "desc" },
+        });
+    },
 
-  findById: async (id: number): Promise<Notifikasi | null> =>
-    data.find((item) => item.id === id) ?? null,
+    findById: async (id: number, userId: number) => {
+        return prisma.notifikasi.findFirst({
+            where: { id, userId },
+        });
+    },
 
-  create: async (payload: CreateNotifikasiInput): Promise<Notifikasi> => {
-    const now = new Date();
-    const newItem: Notifikasi = {
-      id: nextId++,
-      title: payload.title,
-      message: payload.message,
-      isRead: payload.isRead ?? false,
-      createdAt: now,
-      updatedAt: now,
-    };
-    data.push(newItem);
-    return newItem;
-  },
+    create: async (userId: number, payload: CreateNotifikasiInput) => {
+        return prisma.notifikasi.create({
+            data: {
+                userId,
+                title: payload.title,
+                message: payload.message,
+                isRead: payload.isRead ?? false,
+            },
+        });
+    },
 
-  update: async (
-    id: number,
-    payload: UpdateNotifikasiInput
-  ): Promise<Notifikasi | null> => {
-    const idx = data.findIndex((item) => item.id === id);
-    if (idx === -1) return null;
+    update: async (id: number, userId: number, payload: UpdateNotifikasiInput) => {
+        const existing = await prisma.notifikasi.findFirst({ where: { id, userId } });
+        if (!existing) return null;
+        return prisma.notifikasi.update({
+            where: { id },
+            data: payload,
+        });
+    },
 
-    const current = data[idx];
-    const updated: Notifikasi = {
-      ...current,
-      ...payload,
-      updatedAt: new Date(),
-    };
+    remove: async (id: number, userId: number) => {
+        const existing = await prisma.notifikasi.findFirst({ where: { id, userId } });
+        if (!existing) return false;
+        await prisma.notifikasi.delete({ where: { id } });
+        return true;
+    },
 
-    data[idx] = updated;
-    return updated;
-  },
-
-  remove: async (id: number): Promise<boolean> => {
-    const idx = data.findIndex((item) => item.id === id);
-    if (idx === -1) return false;
-    data.splice(idx, 1);
-    return true;
-  },
+    createReminder: async (userId: number, title: string, message: string) => {
+        return prisma.notifikasi.create({
+            data: {
+                userId,
+                title,
+                message,
+                isRead: false,
+            },
+        });
+    },
 };
-

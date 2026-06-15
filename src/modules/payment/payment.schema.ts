@@ -16,6 +16,15 @@ export const verifyPaymentSchema = z.object({
     }),
 });
 
+export const rejectPaymentSchema = z.object({
+    params: z.object({
+        paymentId: z.coerce.number().int().positive(),
+    }),
+    body: z.object({
+        reason: z.string().min(5).max(500),
+    }),
+});
+
 export const getPaymentsByNotaSchema = z.object({
     params: z.object({
         notaId: z.coerce.number().int().positive(),
@@ -24,4 +33,5 @@ export const getPaymentsByNotaSchema = z.object({
 
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>["body"];
 export type VerifyPaymentInput = z.infer<typeof verifyPaymentSchema>;
+export type RejectPaymentInput = z.infer<typeof rejectPaymentSchema>;
 export type GetPaymentsByNotaInput = z.infer<typeof getPaymentsByNotaSchema>["params"];

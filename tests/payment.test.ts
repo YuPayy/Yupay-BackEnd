@@ -313,4 +313,124 @@ describe("Payment Module", () => {
             expect(res.body.data.length).toBe(1);
         });
     });
+
+    describe("PATCH /api/v1/payment/:paymentId/reject (Issue #27)", () => {
+        it("should reject payment, set status to unpaid, and delete proof file", async () => {
+            const payer = await registerAndLogin("rjpayer1");
+            const user2 = await registerAndLogin("rjuser1");
+            const { nota } = await createNotaAndJoin(payer.token, payer.user_id, 50000, [
+                { namaItem: "Item A", quantity: 1, harga: 50000 },
+            ]);
+            await getRequest()
+                .post(`/api/v1/klaim/nota/${nota.nota_id}/join`)
+                .set(authHeader(user2.token));
+
+            const payRes = await getRequest()
+                .post("/api/v1/payment")
+                .set(authHeader(user2.token))
+                .field("notaId", nota.nota_id)
+                .field("amount", 25000)
+                .attach("proof", createFakeImageBuffer(), { filename: "bukti.png", contentType: "image/png" });
+            const paymentId = payRes.body.data.payment_id;
+            const proofUrl: string = payRes.body.data.proofUrl;
+            const filename = proofUrl.split("/").pop();
+            const filePath = path.join(process.cwd(), "uploads/payments", filename);
+            expect(fs.existsSync(filePath)).toBe(true);
+
+            const res = await getRequest()
+                .patch(`/api/v1/payment/${paymentId}/reject`)
+                .set(authHeader(payer.token))
+                .send({ reason: "Bukti transfer tidak valid, nominal tidak sesuai" });
+
+            expect(res.status).toBe(200);
+            expect(res.body.data.status).toBe("unpaid");
+            expect(res.body.data.rejectionReason).toMatch(/tidak valid/i);
+            expect(res.body.data.proofUrl).toBeNull();
+            expect(fs.existsSync(filePath)).toBe(false);
+        });
+
+        it("should reject with 403 when non-payer tries to reject", async () => {
+            const payer = await registerAndLogin("rjpayer2");
+            const user2 = await registerAndLogin("rjuser2");
+            const user3 = await registerAndLogin("rjuser3");
+            const { nota } = await createNotaAndJoin(payer.token, payer.user_id, 50000, [
+                { namaItem: "Item A", quantity: 1, harga: 50000 },
+            ]);
+            await getRequest()
+                .post(`/api/v1/klaim/nota/${nota.nota_id}/join`)
+                .set(authHeader(user2.token));
+            await getRequest()
+                .post(`/api/v1/klaim/nota/${nota.nota_id}/join`)
+                .set(authHeader(user3.token));
+
+            const payRes = await getRequest()
+                .post("/api/v1/payment")
+                .set(authHeader(user2.token))
+                .field("notaId", nota.nota_id)
+                .field("amount", 25000)
+                .attach("proof", createFakeImageBuffer(), { filename: "bukti.png", contentType: "image/png" });
+
+            const res = await getRequest()
+                .patch(`/api/v1/payment/${payRes.body.data.payment_id}/reject`)
+                .set(authHeader(user3.token))
+                .send({ reason: "Saya mau reject" });
+
+            expect(res.status).toBe(403);
+        });
+
+        it("should reject with 400 when reason is too short", async () => {
+            const payer = await registerAndLogin("rjpayer3");
+            const user2 = await registerAndLogin("rjuser4");
+            const { nota } = await createNotaAndJoin(payer.token, payer.user_id, 50000, [
+                { namaItem: "Item A", quantity: 1, harga: 50000 },
+            ]);
+            await getRequest()
+                .post(`/api/v1/klaim/nota/${nota.nota_id}/join`)
+                .set(authHeader(user2.token));
+
+            const payRes = await getRequest()
+                .post("/api/v1/payment")
+                .set(authHeader(user2.token))
+                .field("notaId", nota.nota_id)
+                .field("amount", 25000)
+                .attach("proof", createFakeImageBuffer(), { filename: "bukti.png", contentType: "image/png" });
+
+            const res = await getRequest()
+                .patch(`/api/v1/payment/${payRes.body.data.payment_id}/reject`)
+                .set(authHeader(payer.token))
+                .send({ reason: "ok" });
+
+            expect(res.status).toBe(400);
+        });
+
+        it("should reject with 400 when payment is already confirmed", async () => {
+            const payer = await registerAndLogin("rjpayer4");
+            const user2 = await registerAndLogin("rjuser5");
+            const { nota } = await createNotaAndJoin(payer.token, payer.user_id, 50000, [
+                { namaItem: "Item A", quantity: 1, harga: 50000 },
+            ]);
+            await getRequest()
+                .post(`/api/v1/klaim/nota/${nota.nota_id}/join`)
+                .set(authHeader(user2.token));
+
+            const payRes = await getRequest()
+                .post("/api/v1/payment")
+                .set(authHeader(user2.token))
+                .field("notaId", nota.nota_id)
+                .field("amount", 50000)
+                .attach("proof", createFakeImageBuffer(), { filename: "bukti.png", contentType: "image/png" });
+
+            await getRequest()
+                .patch(`/api/v1/payment/${payRes.body.data.payment_id}/verify`)
+                .set(authHeader(payer.token))
+                .send({ status: "confirmed" });
+
+            const res = await getRequest()
+                .patch(`/api/v1/payment/${payRes.body.data.payment_id}/reject`)
+                .set(authHeader(payer.token))
+                .send({ reason: "Mau reject yang sudah confirmed" });
+
+            expect(res.status).toBe(400);
+        });
+    });
 });

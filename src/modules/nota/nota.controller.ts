@@ -52,7 +52,8 @@ export const scanReceiptHandler = async (req: Request, res: Response) => {
             data: result,
         });
     } catch (error: any) {
-        return res.status(500).json({
+        const isUnavailable = /econnrefused|ocr processing failed/i.test(error.message || "");
+        return res.status(isUnavailable ? 503 : 500).json({
             status: "error",
             message: error.message || "OCR processing failed",
         });

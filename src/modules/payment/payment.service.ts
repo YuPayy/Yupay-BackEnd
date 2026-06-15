@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import path from "path";
+import fs from "fs/promises";
+import { safeEmit } from "../../../backend_app/socket";
 
 const prisma = new PrismaClient();
 
@@ -38,7 +40,7 @@ export const createPayment = async (
         // Simpan proofUrl (relative path)
         const proofUrl = `/uploads/payments/${path.basename(proofFile.path)}`;
 
-        return await tx.payment.create({
+        const payment = await tx.payment.create({
             data: {
                 nota_id: notaId,
                 from_user_id: fromUserId,
@@ -49,6 +51,10 @@ export const createPayment = async (
             },
             include: { from: { select: { user_id: true, username: true } }, to: { select: { user_id: true, username: true } } },
         });
+
+        safeEmit(`nota:${notaId}`, "payment:created", { payment });
+
+        return payment;
     });
 };
 
@@ -102,6 +108,67 @@ export const verifyPayment = async (paymentId: number, verifierId: number, newSt
                 });
             }
         }
+
+        return updated;
+    }).then((updated) => {
+        safeEmit(`nota:${updated.nota_id}`, "payment:verified", {
+            payment_id: updated.payment_id,
+            status: updated.status,
+        });
+        return updated;
+    });
+};
+
+export const rejectPayment = async (
+    paymentId: number,
+    payerId: number,
+    reason: string
+) => {
+    return await prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.findUnique({ where: { payment_id: paymentId } });
+        if (!payment) {
+            const err: any = new Error("Payment tidak ditemukan");
+            err.statusCode = 404;
+            throw err;
+        }
+
+        if (payment.to_user_id !== payerId) {
+            const err: any = new Error("Hanya penerima (payer nota) yang bisa reject");
+            err.statusCode = 403;
+            throw err;
+        }
+
+        if (payment.status !== "pending") {
+            const err: any = new Error(`Payment berstatus ${payment.status}, tidak bisa di-reject`);
+            err.statusCode = 400;
+            throw err;
+        }
+
+        if (payment.proofUrl) {
+            const filePath = path.join(process.cwd(), payment.proofUrl.replace(/^\//, ""));
+            try {
+                await fs.unlink(filePath);
+            } catch (err: any) {
+                if (err.code !== "ENOENT") {
+                    console.error(`[reject] failed to delete proof ${filePath}:`, err.message);
+                }
+            }
+        }
+
+        const updated = await tx.payment.update({
+            where: { payment_id: paymentId },
+            data: {
+                status: "unpaid",
+                proofUrl: null,
+                rejectionReason: reason,
+            },
+        });
+
+        safeEmit(`nota:${updated.nota_id}`, "payment:rejected", {
+            payment_id: updated.payment_id,
+            status: updated.status,
+            reason,
+        });
 
         return updated;
     });

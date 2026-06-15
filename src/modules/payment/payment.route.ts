@@ -154,4 +154,35 @@ router.get("/nota/:notaId", paymentController.getPaymentsByNotaHandler);
  */
 router.patch("/:paymentId/verify", paymentController.verifyPaymentHandler);
 
+/**
+ * @openapi
+ * /api/v1/payment/{paymentId}/reject:
+ *   patch:
+ *     tags: [Payment]
+ *     summary: Tolak pembayaran & hapus file bukti
+ *     description: Hanya payer (to_user_id) yang bisa reject. Status berubah pending → unpaid, file bukti dihapus.
+ *     parameters:
+ *       - in: path
+ *         name: paymentId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reason]
+ *             properties:
+ *               reason: { type: string, minLength: 5, maxLength: 500 }
+ *     responses:
+ *       200:
+ *         description: Payment ditolak
+ *       403:
+ *         description: Bukan payer
+ *       404:
+ *         description: Payment tidak ditemukan
+ */
+router.patch("/:paymentId/reject", paymentController.rejectPaymentHandler);
+
 export default router;

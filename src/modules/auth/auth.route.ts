@@ -9,6 +9,7 @@ import {
   forgotPasswordController,
   resetPasswordController,
 } from "./auth.controller";
+import { authLimiter, otpLimiter } from "../../middlewares/rateLimiter";
 
 const router = Router();
 
@@ -98,7 +99,7 @@ router.use(passport.session());
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.post("/register", registerController);
+router.post("/register", authLimiter, registerController);
 
 /**
  * @openapi
@@ -127,7 +128,7 @@ router.post("/register", registerController);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/login", loginController);
+router.post("/login", authLimiter, loginController);
 
 /**
  * @openapi
@@ -154,7 +155,7 @@ router.post("/login", loginController);
  *       404:
  *         description: Email tidak terdaftar
  */
-router.post("/forgot-password", forgotPasswordController);
+router.post("/forgot-password", otpLimiter, forgotPasswordController);
 
 /**
  * @openapi

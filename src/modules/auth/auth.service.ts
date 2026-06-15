@@ -1,31 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import { addMinutes, isAfter } from "date-fns";
+import { sendEmail } from "../../utils/email";
 
 const prisma = new PrismaClient();
-
-const sendEmail = async (to: string, subject: string, html: string) => {
-    if (process.env.NODE_ENV === "test") {
-        console.log(`[TEST] Skip sending email to ${to}`);
-        return;
-    }
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-    });
-
-    await transporter.sendMail({
-        from: `"Yupay" <${process.env.EMAIL_USER}>`,
-        to,
-        subject,
-        html,
-    });
-};
 
 process.on('beforeExit', async () => {
   await prisma.$disconnect();
@@ -100,11 +79,11 @@ export const forgotPasswordService = async (email: string) => {
         },
     });
 
-    await sendEmail(
-        email,
-        "Yupay - OTP for Password Reset",
-        `Your OTP code is: <b>${otp}</b>. It will expire in 5 minutes.`
-    );
+    await sendEmail({
+        to: email,
+        subject: "Yupay - OTP for Password Reset",
+        html: `Your OTP code is: <b>${otp}</b>. It will expire in 5 minutes.`,
+    });
 };
 
 export const resetPasswordService = async (email: string, otp: string, newPassword: string) => {

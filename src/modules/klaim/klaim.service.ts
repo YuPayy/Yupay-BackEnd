@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { safeEmit } from "../../../backend_app/socket";
 
 const prisma = new PrismaClient();
 
@@ -21,7 +22,7 @@ export const joinNota = async (userId: number, notaId: number) => {
         throw err;
     }
 
-    return await prisma.splitParticipant.create({
+    const participant = await prisma.splitParticipant.create({
         data: {
             nota_id: notaId,
             user_id: userId,
@@ -29,13 +30,21 @@ export const joinNota = async (userId: number, notaId: number) => {
         },
         include: { user: { select: { user_id: true, username: true } } },
     });
+
+    safeEmit(`nota:${notaId}`, "nota:participant-joined", {
+        participant_id: participant.participant_id,
+        user_id: participant.user_id,
+        nota_id: notaId,
+    });
+
+    return participant;
 };
 
 export const upsertClaims = async (
     participantId: number,
     items: { itemId: number; quantity: number }[]
 ) => {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
         // Hapus klaim lama participant ini
         await tx.klaimItem.deleteMany({
             where: { participant_id: participantId },
@@ -52,11 +61,26 @@ export const upsertClaims = async (
             });
         }
 
-        return tx.klaimItem.findMany({
+        const claims = await tx.klaimItem.findMany({
             where: { participant_id: participantId },
             include: { item: true },
         });
+
+        const participant = await tx.splitParticipant.findUnique({
+            where: { participant_id: participantId },
+        });
+
+        return { claims, participant };
     });
+
+    if (result.participant) {
+        safeEmit(`nota:${result.participant.nota_id}`, "nota:claim-updated", {
+            participant_id: participantId,
+            claims: result.claims,
+        });
+    }
+
+    return result.claims;
 };
 
 export const getClaims = async (participantId: number) => {
@@ -133,4 +157,10 @@ export const getSplitResult = async (notaId: number) => {
         selisih,
         participants,
     };
+};
+
+export const emitSplitRecalculated = async (notaId: number) => {
+    const split = await getSplitResult(notaId);
+    safeEmit(`nota:${notaId}`, "nota:split-recalculated", split);
+    return split;
 };

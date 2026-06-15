@@ -169,4 +169,51 @@ describe("Auth Module", () => {
       expect(res.status).toBe(400);
     });
   });
+
+  describe("Rate Limiting (Issue #25)", () => {
+    beforeAll(() => {
+        process.env.NODE_ENV = "production";
+        jest.resetModules();
+    });
+
+    afterAll(() => {
+        process.env.NODE_ENV = "test";
+    });
+
+    it("10. should rate-limit /auth/login after 5 failed attempts", async () => {
+      jest.isolateModules(() => {
+        const { authLimiter } = require("../src/middlewares/rateLimiter");
+      });
+      const { getRequest: getReq } = require("./helpers/app.helper");
+      const freshApp = require("../backend_app/app").default;
+      const request = require("supertest")(freshApp);
+
+      for (let i = 0; i < 5; i++) {
+        await request.post("/auth/login").send({ identifier: "nobody@test.com", password: "wrong" });
+      }
+
+      const res = await request.post("/auth/login").send({ identifier: "nobody@test.com", password: "wrong" });
+
+      expect(res.status).toBe(429);
+      expect(res.body.status).toBe("error");
+      expect(res.body.message).toMatch(/too many/i);
+    });
+
+    it("11. should rate-limit /auth/forgot-password after 3 requests", async () => {
+      const { getRequest: getReq } = require("./helpers/app.helper");
+      const freshApp = require("../backend_app/app").default;
+      const request = require("supertest")(freshApp);
+
+      const user = await registerAndLogin("rlforgot", { email: "rlforgot@test.com" });
+
+      for (let i = 0; i < 3; i++) {
+        await request.post("/auth/forgot-password").send({ email: user.email });
+      }
+
+      const res = await request.post("/auth/forgot-password").send({ email: user.email });
+
+      expect(res.status).toBe(429);
+      expect(res.body.message).toMatch(/too many/i);
+    });
+  });
 });
